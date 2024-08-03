@@ -190,6 +190,14 @@ export default {
     cn: '分散',
     ko: '산개',
   },
+  protean: {
+    en: 'Protean',
+    de: 'Himmelsrichtungen',
+    fr: 'Positions',
+    ja: '基本散会',
+    cn: '八方分散',
+    ko: '8방향 산개',
+  },
   stackMarker: {
     // for stack marker situations
     en: 'Stack',
@@ -231,6 +239,14 @@ export default {
     ja: '${player}に頭割り',
     cn: '靠近 ${player}集合',
     ko: '"${player}" 쉐어징',
+  },
+  stackPartner: {
+    en: 'Stack With Partner',
+    de: 'Mit Partner stacken',
+    fr: 'Packez-vous avec votre partenaire',
+    ja: '白と黒で重なる',
+    cn: '黑白配',
+    ko: '흑백 파트너랑 모이기',
   },
   stackMiddle: {
     en: 'Stack in middle',
@@ -728,6 +744,22 @@ export default {
     ja: '???',
     cn: '???',
     ko: '???',
+  },
+  cardinals: {
+    en: 'Cardinals',
+    de: 'Kardinal',
+    fr: 'Cardinaux',
+    ja: '十字回避',
+    cn: '十字',
+    ko: '십자방향으로',
+  },
+  intercards: {
+    en: 'Intercards',
+    de: 'Interkardinal',
+    fr: 'Intercardinal',
+    ja: '斜めへ',
+    cn: '四角',
+    ko: '대각선 쪽으로',
   },
   north: {
     en: 'North',
