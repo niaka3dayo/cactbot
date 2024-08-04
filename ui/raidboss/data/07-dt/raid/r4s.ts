@@ -91,15 +91,19 @@ const witchHuntAlertOutputStrings = {
 const tailThrustOutputStrings = {
   iceLeft: {
     en: 'Double Knockback (<== Start on Left)',
+    ja: '2回ノックバック (<== 左から)',
   },
   iceRight: {
     en: 'Double Knockback (Start on Right ==>)',
+    ja: '2回ノックバック (右から ==>)',
   },
   fireLeft: {
     en: ' Start Front + Right ==>',
+    ja: '正面開始 + 右へ ==>',
   },
   fireRight: {
     en: '<== Start Front + Left',
+    ja: '<== 正面開始 + 左へ',
   },
   unknown: Outputs.unknown,
 } as const;
@@ -862,6 +866,7 @@ const triggerSet: TriggerSet<Data> = {
       outputStrings: {
         getDebuff: {
           en: 'Get Debuff from Tank',
+          ja: 'タンクからデバフを受け取って',
         },
       },
     },
@@ -894,6 +899,7 @@ const triggerSet: TriggerSet<Data> = {
         ...tailThrustOutputStrings,
         stored: {
           en: 'Stored: ${effect}',
+          ja: 'あとで ${effect}',
         },
       },
     },
@@ -918,6 +924,7 @@ const triggerSet: TriggerSet<Data> = {
         output.responseOutputStrings = {
           lb3: {
             en: 'LB3!',
+            ja: 'タンクLB3!',
           },
         };
 
@@ -1007,6 +1014,7 @@ const triggerSet: TriggerSet<Data> = {
         sides: Outputs.sides,
         combo: {
           en: '${dir} => ${inSides}',
+          ja: '${dir} => ${inSides}',
         },
       },
     },
@@ -1023,9 +1031,11 @@ const triggerSet: TriggerSet<Data> = {
       outputStrings: {
         partners: {
           en: 'Partners => Spread',
+          ja: 'ペア => 散開',
         },
         spread: {
           en: 'Spread => Partners',
+          ja: '散開 => ペア',
         },
       },
     },
