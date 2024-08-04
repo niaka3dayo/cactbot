@@ -25,12 +25,15 @@ const witchHuntAlertOutputStrings = {
   out: Outputs.out,
   near: {
     en: 'Baits Close (Party Far)',
+    ja: '自分が近づく (PTは離れる)',
   },
   far: {
     en: 'Baits Far (Party Close)',
+    ja: '自分が離れる (PTは近づく)',
   },
   combo: {
     en: '${inOut} => ${bait}',
+    ja: '${inOut} => ${bait}',
   },
   unknown: Outputs.unknown,
 } as const;
@@ -108,6 +111,7 @@ const triggerSet: TriggerSet<Data> = {
       outputStrings: {
         avoid: {
           en: 'Avoid Front + Side Cleaves',
+          ja: '正面 + 横からのビームを避けて',
         },
       },
     },
@@ -139,9 +143,11 @@ const triggerSet: TriggerSet<Data> = {
         out: Outputs.out,
         spreadAvoid: {
           en: 'Spread (Avoid Side Cleaves)',
+          ja: '散開 (横のビームを避けて)',
         },
         combo: {
           en: '${inOut} + ${spread}',
+          ja: '${inOut} + ${spread}',
         },
       },
     },
@@ -181,12 +187,15 @@ const triggerSet: TriggerSet<Data> = {
         out: Outputs.out,
         near: {
           en: 'Spread (Close)',
+          ja: '散開 (近づく)',
         },
         far: {
           en: 'Spread (Far)',
+          ja: '散開 (離れる)',
         },
         combo: {
           en: '${inOut} + ${spread}',
+          ja: '${inOut} + ${spread}',
         },
       },
     },
@@ -240,9 +249,11 @@ const triggerSet: TriggerSet<Data> = {
         out: Outputs.out,
         near: {
           en: 'Close',
+          ja: '近づく',
         },
         far: {
           en: 'Far',
+          ja: '離れる',
         },
         separator: {
           en: ' => ',
@@ -252,9 +263,11 @@ const triggerSet: TriggerSet<Data> = {
         },
         baitStep: {
           en: '${inOut} (${bait})',
+          ja: '${inOut} (${bait})',
         },
         baitCombo: {
           en: 'Baits: ${allBaits}',
+          ja: '誘導: ${allBaits}',
         },
         unknown: Outputs.unknown,
       },
@@ -429,6 +442,7 @@ const triggerSet: TriggerSet<Data> = {
         spread: Outputs.spread,
         combo: {
           en: '${dir} => ${mech}',
+          ja: '${dir} => ${mech}',
         },
       },
     },
@@ -454,9 +468,11 @@ const triggerSet: TriggerSet<Data> = {
       outputStrings: {
         short: {
           en: 'Short Debuff',
+          ja: '短いデバフ',
         },
         long: {
           en: 'Long Debuff',
+          ja: '長いデバフ',
         },
       },
     },
@@ -479,6 +495,7 @@ const triggerSet: TriggerSet<Data> = {
       outputStrings: {
         spread: {
           en: 'Spread (${stacks} stacks)',
+          ja: '散開 (${stacks} 集合)',
         },
       },
     },
@@ -505,6 +522,7 @@ const triggerSet: TriggerSet<Data> = {
         unknown: Outputs.unknown,
         combo: {
           en: '${dir} => ${mech}',
+          ja: '${dir} => ${mech}',
         },
       },
     },
@@ -556,9 +574,11 @@ const triggerSet: TriggerSet<Data> = {
         unknown: Outputs.unknown,
         tank: {
           en: '${dir} - Be in Front',
+          ja: '${dir} - 正面へ',
         },
         nonTank: {
           en: '${dir} - Behind Tank',
+          ja: '${dir} - タンクの後ろへ',
         },
       },
     },
@@ -574,16 +594,20 @@ const triggerSet: TriggerSet<Data> = {
         output.responseOutputStrings = {
           swap: {
             en: 'Swap Sides',
+            ja: '向きを入れ替える',
           },
           stay: {
             en: 'Stay',
+            ja: 'そのまま',
           },
           unknown: Outputs.unknown,
           tank: {
             en: '${dir} - Be in Front',
+            ja: '${dir} - 正面へ',
           },
           nonTank: {
             en: '${dir} - Behind Tank',
+            ja: '${dir} - タンクの後ろへ',
           },
         };
 
@@ -633,18 +657,23 @@ const triggerSet: TriggerSet<Data> = {
       outputStrings: {
         remoteCurrent: {
           en: 'Far Cone on You',
+          ja: '自分に遠距離扇範囲',
         },
         proximateCurrent: {
           en: 'Near Cone on You',
+          ja: '自分に近距離扇範囲',
         },
         spinningConductor: {
           en: 'Small AoE on You',
+          ja: '自分に小さい円範囲',
         },
         roundhouseConductor: {
           en: 'Donut AoE on You',
+          ja: '自分にドーナツ範囲',
         },
         colliderConductor: {
           en: 'Get Hit by Cone',
+          ja: '扇範囲に当たって',
         },
       },
     },
@@ -670,9 +699,11 @@ const triggerSet: TriggerSet<Data> = {
       outputStrings: {
         near: {
           en: 'In Front of Partner',
+          ja: '相方の正面へ',
         },
         far: {
           en: 'Behind Partner',
+          ja: '相方の後ろへ',
         },
       },
     },
