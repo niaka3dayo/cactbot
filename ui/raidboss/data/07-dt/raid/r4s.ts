@@ -1,7 +1,13 @@
 import Conditions from '../../../../../resources/conditions';
+import { UnreachableCode } from '../../../../../resources/not_reached';
 import Outputs from '../../../../../resources/outputs';
 import { Responses } from '../../../../../resources/responses';
-import { DirectionOutputIntercard, Directions } from '../../../../../resources/util';
+import {
+  DirectionOutput8,
+  DirectionOutputCardinal,
+  DirectionOutputIntercard,
+  Directions,
+} from '../../../../../resources/util';
 import ZoneId from '../../../../../resources/zone_id';
 import { RaidbossData } from '../../../../../types/data';
 import { TriggerSet } from '../../../../../types/trigger';
@@ -13,10 +19,54 @@ import { TriggerSet } from '../../../../../types/trigger';
 
 type NearFar = 'near' | 'far'; // wherever you are...
 type InOut = 'in' | 'out';
+type PartnersSpread = 'partners' | 'spread';
 type NorthSouth = 'north' | 'south';
+type LeftRight = 'left' | 'right';
+type ActorPositions = { [id: string]: DirectionOutput8 };
+type AetherialId = keyof typeof aetherialAbility;
+type AetherialEffect = 'iceRight' | 'iceLeft' | 'fireRight' | 'fireLeft';
 
-const centerX = 100;
-const centerY = 100;
+const aetherialAbility = {
+  '9602': 'iceRight',
+  '9603': 'iceLeft',
+  '9604': 'fireRight',
+  '9605': 'fireLeft',
+} as const;
+
+const isAetherialId = (id: string): id is AetherialId => {
+  return id in aetherialAbility;
+};
+
+// Replicas face center, so the half they cleave will render all those intercards unsafe.
+type DirectionCardinal = Exclude<DirectionOutputCardinal, 'unknown'>;
+type ReplicaCleaveMap = {
+  [K in DirectionCardinal]: {
+    [D in LeftRight]: DirectionOutputIntercard[];
+  };
+};
+
+const replicaCleaveUnsafeMap: ReplicaCleaveMap = {
+  'dirN': {
+    'left': ['dirNE', 'dirSE'],
+    'right': ['dirNW', 'dirSW'],
+  },
+  'dirE': {
+    'left': ['dirSE', 'dirSW'],
+    'right': ['dirNW', 'dirNE'],
+  },
+  'dirS': {
+    'left': ['dirSW', 'dirNW'],
+    'right': ['dirNE', 'dirSE'],
+  },
+  'dirW': {
+    'left': ['dirNW', 'dirNE'],
+    'right': ['dirSE', 'dirSW'],
+  },
+};
+
+const isCardinalDir = (dir: DirectionOutput8): dir is DirectionCardinal => {
+  return (Directions.outputCardinalDir as string[]).includes(dir);
+};
 
 // For now, call the in/out, the party safe spot, and the bait spot; users can customize.
 // If/once standard strats develop, this would be a good thing to revisit.
@@ -38,7 +88,25 @@ const witchHuntAlertOutputStrings = {
   unknown: Outputs.unknown,
 } as const;
 
+const tailThrustOutputStrings = {
+  iceLeft: {
+    en: 'Double Knockback (<== Start on Left)',
+  },
+  iceRight: {
+    en: 'Double Knockback (Start on Right ==>)',
+  },
+  fireLeft: {
+    en: ' Start Front + Right ==>',
+  },
+  fireRight: {
+    en: '<== Start Front + Left',
+  },
+  unknown: Outputs.unknown,
+} as const;
+
 export interface Data extends RaidbossData {
+  phase: 1 | 2;
+  // Phase 1
   bewitchingBurstSafe?: InOut;
   hasForkedLightning: boolean;
   seenBasicWitchHunt: boolean;
@@ -47,13 +115,21 @@ export interface Data extends RaidbossData {
   witchGleamCount: number;
   electromines: { [id: string]: DirectionOutputIntercard };
   electrominesSafe: DirectionOutputIntercard[];
-  starEffect?: 'partners' | 'spread';
+  starEffect?: PartnersSpread;
   witchgleamSelfCount: number;
   condenserTimer?: 'short' | 'long';
   electronStreamSafe?: 'yellow' | 'blue';
   electronStreamSide?: NorthSouth;
   seenConductorDebuffs: boolean;
   conductionPointTargets: string[];
+  // Phase 2
+  replicas: ActorPositions;
+  mustardBombTargets: string[];
+  aetherialEffect?: AetherialEffect;
+  twilightSafe: DirectionOutputIntercard[];
+  replicaCleaveCount: number;
+  secondTwilightCleaveSafe?: DirectionOutputIntercard;
+  midnightFirstMech?: PartnersSpread;
 }
 
 const triggerSet: TriggerSet<Data> = {
@@ -62,6 +138,8 @@ const triggerSet: TriggerSet<Data> = {
   timelineFile: 'r4s.txt',
   initData: () => {
     return {
+      phase: 1,
+      // Phase 1
       hasForkedLightning: false,
       seenBasicWitchHunt: false,
       witchGleamCount: 0,
@@ -70,13 +148,22 @@ const triggerSet: TriggerSet<Data> = {
       witchgleamSelfCount: 0,
       seenConductorDebuffs: false,
       conductionPointTargets: [],
+      // Phase 2
+      replicas: {},
+      mustardBombTargets: [],
+      twilightSafe: Directions.outputIntercardDir,
+      replicaCleaveCount: 0,
     };
   },
   timelineTriggers: [
+    // Order: Soulshock => Impact x2 => Cannonbolt (entire sequence is ~9s).
+    // None of these have StartsUsing lines or other lines that could be used for pre-warn triggers;
+    // they seem to be entirely timeline based.  To avoid spam, use a single alert.
     {
       id: 'R4S Soulshock',
       regex: /Soulshock/,
-      beforeSeconds: 5,
+      beforeSeconds: 4,
+      durationSeconds: 13,
       response: Responses.bigAoe(),
     },
   ],
@@ -84,19 +171,28 @@ const triggerSet: TriggerSet<Data> = {
     // ***************** PHASE 1 ***************** //
     // General
     {
+      id: 'R4S Phase Tracker',
+      type: 'Ability',
+      // 98D0 = Cannonbolt (knockback to south platform)
+      netRegex: { id: '98D0', source: 'Wicked Thunder', capture: false },
+      suppressSeconds: 1,
+      run: (data) => data.phase = 2,
+    },
+    {
       id: 'R4S Wrath of Zeus',
       type: 'StartsUsing',
       netRegex: { id: '95EF', source: 'Wicked Thunder', capture: false },
       response: Responses.aoe(),
     },
     {
-      id: 'R4S Wicked Bolt Stack',
-      type: 'StartsUsing',
-      netRegex: { id: '92C2', capture: false },
-      response: Responses.stackMarker(),
+      id: 'R4S Wicked Bolt',
+      type: 'HeadMarker',
+      netRegex: { id: '013C' },
+      condition: (data) => data.phase === 1,
+      response: Responses.stackMarkerOn(),
     },
     {
-      id: 'R4S Wicked Jolt Tankbuster',
+      id: 'R4S Wicked Jolt',
       type: 'StartsUsing',
       netRegex: { id: '95F0' },
       response: Responses.tankBusterSwap(),
@@ -371,7 +467,8 @@ const triggerSet: TriggerSet<Data> = {
       run: (data, matches) => {
         const x = parseFloat(matches.x);
         const y = parseFloat(matches.y);
-        const intercard = Directions.xyToIntercardDirOutput(x, y, centerX, centerY);
+        // centerX = 100, centerY = 100 during phase 1
+        const intercard = Directions.xyToIntercardDirOutput(x, y, 100, 100);
         data.electromines[matches.id] = intercard;
       },
     },
@@ -556,7 +653,7 @@ const triggerSet: TriggerSet<Data> = {
       // 95D6 - Yellow cannon north, Blue cannnon south
       // 95D7 - Blue cannon north, Yellow cannon south
       netRegex: { id: ['95D6', '95D7'], source: 'Wicked Thunder' },
-      condition: (data) => data.electronStreamSide === undefined,
+      condition: (data) => !data.seenConductorDebuffs,
       alertText: (data, matches, output) => {
         if (data.electronStreamSafe === 'yellow')
           data.electronStreamSide = matches.id === '95D6' ? 'north' : 'south';
@@ -619,8 +716,10 @@ const triggerSet: TriggerSet<Data> = {
         else if (data.electronStreamSafe === 'blue')
           safeSide = matches.id === '95D6' ? 'south' : 'north';
 
-        if (safeSide !== 'unknown')
+        if (safeSide !== 'unknown') {
           dir = safeSide === data.electronStreamSide ? 'stay' : 'swap';
+          data.electronStreamSide = safeSide; // for the next comparison
+        }
 
         const text = data.role === 'tank'
           ? output.tank!({ dir: output[dir]!() })
@@ -696,6 +795,7 @@ const triggerSet: TriggerSet<Data> = {
           return output.far!();
         return output.near!();
       },
+      run: (data) => data.conductionPointTargets = [],
       outputStrings: {
         near: {
           en: 'In Front of Partner',
@@ -709,23 +809,225 @@ const triggerSet: TriggerSet<Data> = {
     },
 
     // ***************** PHASE 2 ***************** //
+    // General
+    {
+      id: 'R4S Replica Position Collect',
+      type: 'ActorSetPos',
+      netRegex: { id: '4.{7}' },
+      condition: (data) => data.phase === 2,
+      run: (data, matches) => {
+        const x = parseFloat(matches.x);
+        const y = parseFloat(matches.y);
+        // centerX = 100, centerY = 165 during phase 2
+        const dir = Directions.xyTo8DirOutput(x, y, 100, 165);
+        data.replicas[matches.id] = dir;
+      },
+    },
+    {
+      id: 'R4S Azure Thunder',
+      type: 'StartsUsing',
+      netRegex: { id: '962F', source: 'Wicked Thunder', capture: false },
+      response: Responses.aoe(),
+    },
+    {
+      id: 'R4S Mustard Bomb Initial',
+      type: 'StartsUsing',
+      netRegex: { id: '961E', source: 'Wicked Thunder', capture: false },
+      infoText: (data, _matches, output) =>
+        data.role === 'tank' ? output.tank!() : output.nonTank!(),
+      outputStrings: {
+        tank: Outputs.tetherBusters,
+        nonTank: Outputs.spread,
+      },
+    },
+    {
+      id: 'R4S Mustard Bomb Collect',
+      type: 'Ability',
+      // 961F - Mustard Bomb (tank tethers, x2)
+      // 9620 - Kindling Cauldron (spread explosions, x4)
+      netRegex: { id: ['961F', '9620'], source: 'Wicked Thunder' },
+      run: (data, matches) => data.mustardBombTargets.push(matches.target),
+    },
+    {
+      id: 'R4S Mustard Bomb Followup',
+      type: 'Ability',
+      netRegex: { id: '961F', source: 'Wicked Thunder', capture: false },
+      delaySeconds: 0.2,
+      suppressSeconds: 1,
+      infoText: (data, _matches, output) => {
+        if (!data.mustardBombTargets.includes(data.me))
+          return output.getDebuff!();
+      },
+      run: (data) => data.mustardBombTargets = [],
+      outputStrings: {
+        getDebuff: {
+          en: 'Get Debuff from Tank',
+        },
+      },
+    },
     {
       id: 'R4S Wicked Special Sides',
       type: 'StartsUsing',
       netRegex: { id: '9610', source: 'Wicked Thunder', capture: false },
+      condition: (data) => data.secondTwilightCleaveSafe === undefined,
       response: Responses.goSides(),
     },
     {
       id: 'R4S Wicked Special In',
       type: 'StartsUsing',
       netRegex: { id: '9612', source: 'Wicked Thunder', capture: false },
+      condition: (data) => data.secondTwilightCleaveSafe === undefined,
       response: Responses.getIn(),
     },
     {
-      id: 'R4S Scattered Burst',
+      id: 'R4S Aetherial Conversion',
       type: 'StartsUsing',
-      netRegex: { id: '962C', source: 'Wicked Thunder', capture: false },
-      response: Responses.spreadThenStack(),
+      netRegex: { id: Object.keys(aetherialAbility), source: 'Wicked Thunder' },
+      durationSeconds: 7,
+      infoText: (data, matches, output) => {
+        if (!isAetherialId(matches.id))
+          throw new UnreachableCode();
+        data.aetherialEffect = aetherialAbility[matches.id];
+        return output.stored!({ effect: output[data.aetherialEffect]!() });
+      },
+      outputStrings: {
+        ...tailThrustOutputStrings,
+        stored: {
+          en: 'Stored: ${effect}',
+        },
+      },
+    },
+    {
+      id: 'R4S Tail Thrust',
+      type: 'StartsUsing',
+      // 9606-9609 correspond to the id casts for the triggering Aetherial Conversion,
+      // but we don't care which is which at this point because we've already stored the effect
+      netRegex: { id: ['9606', '9607', '9608', '9609'], source: 'Wicked Thunder', capture: false },
+      alertText: (data, _matches, output) => output[data.aetherialEffect ?? 'unknown']!(),
+      outputStrings: tailThrustOutputStrings,
+    },
+
+    // Pre-Sabbaths
+    {
+      id: 'R4S Cross Tail Switch',
+      type: 'StartsUsing',
+      netRegex: { id: '95F2', source: 'Wicked Thunder', capture: false },
+      delaySeconds: (data) => data.role === 'tank' ? 3 : 1,
+      response: (data, _matches, output) => {
+        // cactbot-builtin-response
+        output.responseOutputStrings = {
+          lb3: {
+            en: 'LB3!',
+          },
+        };
+
+        if (data.role === 'tank')
+          return { alarmText: output.lb3!() };
+        return Responses.bigAoe();
+      },
+    },
+    {
+      id: 'R4S Wicked Blaze',
+      type: 'HeadMarker',
+      netRegex: { id: '013C', capture: false },
+      condition: (data) => data.phase === 2,
+      suppressSeconds: 1,
+      infoText: (_data, _matches, output) => output.stacks!(),
+      outputStrings: {
+        stacks: Outputs.healerGroups,
+      },
+    },
+
+    // Twilight Sabbath
+    {
+      id: 'R4S Wicked Fire',
+      type: 'StartsUsing',
+      netRegex: { id: '9630', source: 'Wicked Thunder', capture: false },
+      infoText: (_data, _matches, output) => output.bait!(),
+      outputStrings: {
+        bait: Outputs.baitPuddles,
+      },
+    },
+    {
+      id: 'R4S Twilight Sabbath Sidewise Spark',
+      type: 'GainsEffect',
+      // count: 319 - add cleaves to its right, 31A - add cleaves to its left
+      netRegex: { effectId: '808', count: ['319', '31A'] },
+      condition: (data) => data.phase === 2,
+      alertText: (data, matches, output) => {
+        data.replicaCleaveCount++;
+        const dir = data.replicas[matches.targetId];
+        if (dir === undefined || !isCardinalDir(dir))
+          return;
+
+        const cleaveDir = matches.count === '319' ? 'right' : 'left';
+        const unsafeDirs = replicaCleaveUnsafeMap[dir][cleaveDir];
+        data.twilightSafe = data.twilightSafe.filter((d) => !unsafeDirs.includes(d));
+
+        if (data.replicaCleaveCount !== 2)
+          return;
+        const [safe0] = data.twilightSafe;
+        if (safe0 === undefined)
+          return;
+
+        // on the first combo, set the second safe spot to unknown, and return the first safe spot
+        // next time around, store the safe spot, so we can do a combined output with Wicked Special
+        if (!data.secondTwilightCleaveSafe) {
+          data.secondTwilightCleaveSafe = 'unknown';
+          return output[safe0]!();
+        }
+        data.secondTwilightCleaveSafe = safe0;
+      },
+      run: (data) => {
+        if (data.replicaCleaveCount !== 2)
+          return;
+        data.replicaCleaveCount = 0;
+        data.twilightSafe = Directions.outputIntercardDir;
+      },
+      outputStrings: Directions.outputStringsIntercardDir,
+    },
+    {
+      id: 'R4S Twilight Sabbath + Wicked Special',
+      type: 'StartsUsing',
+      netRegex: { id: ['9610', '9612'], source: 'Wicked Thunder' },
+      condition: (data) => data.secondTwilightCleaveSafe !== undefined,
+      alertText: (data, matches, output) => {
+        const dir = data.secondTwilightCleaveSafe;
+        if (dir === undefined)
+          throw new UnreachableCode();
+
+        return matches.id === '9610'
+          ? output.combo!({ dir: output[dir]!(), inSides: output.sides!() })
+          : output.combo!({ dir: output[dir]!(), inSides: output.in!() });
+      },
+      run: (data) => delete data.secondTwilightCleaveSafe,
+      outputStrings: {
+        ...Directions.outputStringsIntercardDir,
+        in: Outputs.in,
+        sides: Outputs.sides,
+        combo: {
+          en: '${dir} => ${inSides}',
+        },
+      },
+    },
+
+    // Midnight Sabbath
+    {
+      id: 'R4S Concentrated/Scattered Burst',
+      type: 'StartsUsing',
+      netRegex: { id: ['962B', '962C'], source: 'Wicked Thunder' },
+      infoText: (data, matches, output) => {
+        data.midnightFirstMech = matches.id === '962B' ? 'partners' : 'spread';
+        return matches.id === '962B' ? output.partners!() : output.spread!();
+      },
+      outputStrings: {
+        partners: {
+          en: 'Partners => Spread',
+        },
+        spread: {
+          en: 'Spread => Partners',
+        },
+      },
     },
     // Sword Burst - # 95F9 - front, FA - mid, FB - back
   ],

@@ -256,6 +256,14 @@ export default {
     cn: '中间集合',
     ko: '중앙에서 모이기',
   },
+  baitPuddles: {
+    en: 'Bait puddles',
+    de: 'Flächen Ködern',
+    fr: 'Attirez les flaques',
+    ja: 'AOE誘導',
+    cn: '诱导圈圈',
+    ko: '장판 유도',
+  },
   // For general more-than-one-stack-at-a-time situations
   stacks: {
     en: 'Stacks',

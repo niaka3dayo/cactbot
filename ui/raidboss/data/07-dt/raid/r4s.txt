@@ -297,9 +297,11 @@ hideall "--sync--"
 # 95FF Sword Quiver
 # 9600 Burst
 # 9601 Laceration
+# 9602 Aetherial Conversion
 # 9603 Aetherial Conversion
 # 9604 Aetherial Conversion
 # 9605 Aetherial Conversion
+# 9606 Tail Thrust
 # 9607 Tail Thrust
 # 9608 Tail Thrust
 # 9609 Tail Thrust
